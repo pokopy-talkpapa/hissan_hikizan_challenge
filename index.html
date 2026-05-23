@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>ひきざん チャレンジ</title>
+<style>
+  :root {
+    --bg: #f0f0f0;
+    --panel: #ffffff;
+    --dark: #111;
+    --red: #d14;
+    --shadow: 0 8px 24px rgba(0,0,0,.1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Noto Sans JP", sans-serif;
+    background: var(--bg);
+    min-height: 100dvh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 16px 12px 32px;
+    color: var(--dark);
+    touch-action: manipulation;
+  }
+  .card {
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 16px 14px 20px;
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 360px;
+    position: relative;
+  }
+  .title {
+    font-weight: 950;
+    font-size: 18px;
+    margin: 36px 0 14px;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .soundBtn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    border: 0;
+    border-radius: 10px;
+    padding: 5px 8px;
+    font-size: 11px;
+    font-weight: 900;
+    cursor: pointer;
+    background: #f1f1f1;
+    color: var(--dark);
+    line-height: 1;
+    z-index: 10;
+  }
+  .leftTopBtn {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    border: 0;
+    background: #eee;
+    color: #555;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    line-height: 1;
+    z-index: 10;
+  }
+  .soundBtn.off { background: #e9e9e9; color: #888; }
+
+  /* ── 画面切替 ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── ★選択画面 ── */
+  .starGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 14px 0;
+  }
+  .starBtn {
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    background: #fff;
+    color: var(--dark);
+    font-weight: 900;
+    font-size: 22px;
+    padding: 18px 0;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .starBtn:active { transform: scale(.97); }
+  .starBtn:hover { background: #f7f7f7; }
+
+  /* ── モード選択画面 ── */
+  .selectedStar {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 950;
+    margin: 8px 0 18px;
+  }
+  .modeList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .modeBtn {
+    border: 0;
+    border-radius: 14px;
+    background: var(--dark);
+    color: #fff;
+    font-weight: 900;
+    font-size: 18px;
+    padding: 16px;
+    cursor: pointer;
+  }
+  .modeBtn.practice { background: #4a8; }
+  .modeBtn.challenge { background: #c63; }
+  .modeBtn.nomiss { background: #a35; }
+  .modeBtn:active { transform: scale(.98); }
+  .backBtn {
+    display: block;
+    margin: 16px auto 0;
+    border: 0;
+    background: transparent;
+    color: #666;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 8px 12px;
+  }
+
+  /* ── 本番画面 ── */
+  .playHeader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 800;
+    color: #666;
+    margin: 36px 0 4px;
+    min-height: 24px;
+  }
+  .playStats {
+    display: flex;
+    gap: 12px;
+  }
+  .playStats .stat { white-space: nowrap; }
+  .playStats .timer.warn { color: var(--red); }
+
+  /* 問題エリア */
+  .problemWrap {
+    position: relative;
+    height: 300px;       /* 固定高さ：中身が増減してもテンキー位置を動かさない */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .problemInner {
+    position: relative;
+    display: inline-block;
+  }
+  #q {
+    display: inline-grid;
+    grid-template-columns: 1.2em 1.2em 1.2em;
+    column-gap: 6px;
+    row-gap: 4px;
+    font-size: clamp(40px, 11vw, 60px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: .02em;
+    padding-top: 30px;
+    text-align: right;
+  }
+  #q .cell { text-align: right; min-width: 1.2em; position: relative; }
+  #q .hbar {
+    grid-column: 1 / -1;
+    height: 4px;
+    background: #111;
+    margin-top: 8px;
+    border-radius: 2px;
+  }
+  #q .ans { margin-top: 14px; color: #111; }
+
+  /* ヒント（補数 = 上段一の位の右） */
+  .hint {
+    position: absolute;
+    font-size: clamp(20px, 5vw, 30px);
+    font-weight: 800;
+    line-height: 1;
+    color: var(--red);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .hint.show { opacity: 1; }
+
+  /* 入力プレビュー（自分が打った数字） */
+  .inputBox {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: 8px;
+  }
+  .inputBox.red { color: var(--red); }
+
+  /* ハイライト（今ここに入るよ枠 = 半透明の正方形エリア） */
+  .hl {
+    background: rgba(74, 168, 136, 0.22);
+    box-shadow: 0 0 0 2px rgba(74, 168, 136, 0.5) inset;
+    animation: hlPulse 1.1s ease-in-out infinite;
+  }
+  .hl.hlRed {
+    background: rgba(209, 17, 68, 0.18);
+    box-shadow: 0 0 0 2px rgba(209, 17, 68, 0.5) inset;
+    animation: hlPulseRed 1.1s ease-in-out infinite;
+  }
+  @keyframes hlPulse {
+    0%, 100% { background: rgba(74, 168, 136, 0.22); }
+    50%      { background: rgba(74, 168, 136, 0.10); }
+  }
+  @keyframes hlPulseRed {
+    0%, 100% { background: rgba(209, 17, 68, 0.18); }
+    50%      { background: rgba(209, 17, 68, 0.08); }
+  }
+
+  /* 答えセル：数字は右寄せ（上段と桁揃え）、ハイライトは数字の上に正方形で重ねる
+     min-height ではなく固定 height で、空でも数字入りでも同じ高さを保つ（テンキー位置を動かさないため） */
+  #q .ans { position: relative; z-index: 0; height: 1.1em; line-height: 1.1; }
+  /* 答えセル用のハイライト：セル背景ではなく、数字に重なる正方形を ::before で描く */
+  #q .ans.hl { background: none; box-shadow: none; animation: none; }
+  #q .ans.hl::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -0.15em;
+    width: 1em;
+    height: 1em;
+    transform: translateY(-50%);
+    background: rgba(74, 168, 136, 0.22);
+    box-shadow: 0 0 0 2px rgba(74, 168, 136, 0.5) inset;
+    border-radius: 8px;
+    animation: hlPulse 1.1s ease-in-out infinite;
+    pointer-events: none;
+    z-index: -1;
+  }
+  #q .ans.hl.hlRed::before {
+    background: rgba(209, 17, 68, 0.18);
+    box-shadow: 0 0 0 2px rgba(209, 17, 68, 0.5) inset;
+    animation: hlPulseRed 1.1s ease-in-out infinite;
+  }
+
+  /* キーパッド */
+  .keypad {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 8px;
+    border-radius: 14px;
+    background: transparent;
+    transition: background .2s ease;
+  }
+  .keypad.redOn {
+    background: rgba(209, 17, 68, 0.10);
+  }
+  .keyBtn {
+    border: 0;
+    border-radius: 12px;
+    background: #fff;
+    color: var(--dark);
+    box-shadow: 0 4px 10px rgba(0,0,0,.08);
+    min-height: 52px;
+    font-size: 22px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: transform .08s ease;
+  }
+  .keyBtn:active { transform: translateY(1px) scale(.98); }
+  .keyBtn.shift {
+    background: #fff;
+    border: 2px solid #ddd;
+    font-size: 16px;
+  }
+  .keyBtn.shift.on {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+  }
+  .keyBtn.back { background: #f1f1f1; font-size: 18px; }
+  .keyBtn.enter {
+    background: var(--dark);
+    color: #fff;
+    font-size: 18px;
+  }
+  .keyBtn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .extras {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    height: 32px;          /* ヒントボタンと同じ高さで固定 */
+    align-items: center;
+  }
+  .hintBtn {
+    border: 0;
+    background: #ffe9a8;
+    color: #553;
+    border-radius: 10px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+    height: 32px;          /* 固定高さ：ラベルが「💡 ヒント」⇄「🟩に数字を入れます」と変わってもテンキー位置を動かさない */
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hintBtn:disabled { opacity: .4; }
+  .hintBtn .swatch {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    border-radius: 4px;
+    vertical-align: -0.15em;
+    margin-right: 4px;
+  }
+  .hintBtn .swatch.green {
+    background: rgba(74, 168, 136, 0.22);
+    box-shadow: 0 0 0 2px rgba(74, 168, 136, 0.5) inset;
+  }
+  .hintBtn .swatch.red {
+    background: rgba(209, 17, 68, 0.18);
+    box-shadow: 0 0 0 2px rgba(209, 17, 68, 0.5) inset;
+  }
+
+  /* 結果画面 */
+  .resultScore {
+    text-align: center;
+    font-size: 38px;
+    font-weight: 950;
+    margin: 16px 0 4px;
+    white-space: pre-line;
+    line-height: 1.2;
+  }
+  .resultSub {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #555;
+    margin: 0 0 16px;
+    white-space: pre-line;
+    line-height: 1.6;
+  }
+  .resultActions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .resultActions button {
+    border: 0;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .resultActions .again { background: var(--dark); color: #fff; font-size: 17px; padding: 14px; }
+  .resultActions .quitResult { background: #eee; color: #333; }
+  .resultActions .resetBest { background: #fef0f0; color: #a35; font-size: 12px; padding: 8px; }
+
+  /* アニメ */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-8px); }
+    80% { transform: translateX(8px); }
+  }
+  .shake { animation: shake .22s ease; }
+  @keyframes bgCorrect {
+    0% { background: #b6f0b6; }
+    60% { background: #dffadf; }
+    100% { background: #fff; }
+  }
+  @keyframes bgWrong {
+    0% { background: #ffb3b3; }
+    60% { background: #ffe0e0; }
+    100% { background: #fff; }
+  }
+  .bgCorrect { animation: bgCorrect .45s ease; }
+  .bgWrong { animation: bgWrong .45s ease; }
+  .starParticle {
+    position: absolute;
+    font-size: 28px;
+    pointer-events: none;
+    z-index: 20;
+    animation: starFloat .7s ease forwards;
+  }
+  @keyframes starFloat {
+    0% { opacity: 1; transform: translate(-50%, 0) scale(0.8); }
+    40% { opacity: 1; transform: translate(-50%, -50px) scale(1.3); }
+    100% { opacity: 0; transform: translate(-50%, -90px) scale(1); }
+  }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <button id="soundBtn" class="soundBtn" type="button">🔊 おと ON</button>
+
+  <!-- ★選択画面 -->
+  <div class="screen active" id="screenStarSelect">
+    <p class="title">ひきざん チャレンジ</p>
+    <p style="text-align:center; font-size:13px; color:#666; margin:0 0 4px;">レベルを えらんでね</p>
+    <div class="starGrid">
+      <button class="starBtn" data-star="1">★1</button>
+      <button class="starBtn" data-star="2">★2</button>
+      <button class="starBtn" data-star="3">★3</button>
+      <button class="starBtn" data-star="4">★4</button>
+      <button class="starBtn" data-star="5">★5</button>
+      <button class="starBtn" data-star="6">★6</button>
+    </div>
+  </div>
+
+  <!-- モード選択画面 -->
+  <div class="screen" id="screenModeSelect">
+    <button class="leftTopBtn" id="backToStar">← ★をえらぶ</button>
+    <p class="title">モードを えらぶ</p>
+    <p class="selectedStar" id="selectedStarLabel">★?</p>
+    <div class="modeList">
+      <button class="modeBtn practice" data-mode="practice">れんしゅう</button>
+      <button class="modeBtn challenge" data-mode="challenge">30びょう</button>
+      <button class="modeBtn nomiss" data-mode="nomiss">ノーミスモード</button>
+    </div>
+  </div>
+
+  <!-- 本番画面 -->
+  <div class="screen" id="screenPlay">
+    <button class="leftTopBtn" id="quitBtn">やめる</button>
+    <div class="playHeader">
+      <div class="playStats">
+        <span class="stat" id="playStarMode">★? れんしゅう</span>
+        <span class="stat timer" id="playTimer"></span>
+        <span class="stat" id="playScore"></span>
+      </div>
+    </div>
+
+    <div class="problemWrap">
+      <div class="problemInner" id="problemInner">
+        <!-- ヒント -->
+        <div id="hintComplement" class="hint"></div>
+        <div id="hintOnes" class="hint"></div>
+        <div id="hintAnswer" class="hint" style="color:#111;"></div>
+
+        <div id="q">
+          <!-- 上段 -->
+          <span class="cell"></span>
+          <span class="cell" id="qTens"></span>
+          <span class="cell" id="qOnes"></span>
+          <!-- 下段 -->
+          <span class="cell">−</span>
+          <span class="cell"></span>
+          <span class="cell" id="qSub"></span>
+          <span class="hbar"></span>
+          <!-- 答え段 -->
+          <span class="cell ans"></span>
+          <span class="cell ans" id="ansTensBox"></span>
+          <span class="cell ans" id="ansOnesBox"></span>
+        </div>
+
+        <!-- 赤入力ボックス（上段一の位の右） -->
+        <span class="inputBox red" id="redComplementBox" style="position:absolute; pointer-events:none;"></span>
+        <span class="inputBox red" id="redOnesBox" style="position:absolute; pointer-events:none;"></span>
+      </div>
+    </div>
+
+    <div class="extras">
+      <button class="hintBtn" id="hintBtn">💡 ヒント</button>
+    </div>
+
+    <div class="keypad" id="keypad">
+      <button class="keyBtn" data-num="1">1</button>
+      <button class="keyBtn" data-num="2">2</button>
+      <button class="keyBtn" data-num="3">3</button>
+      <button class="keyBtn" data-num="4">4</button>
+      <button class="keyBtn" data-num="5">5</button>
+      <button class="keyBtn" data-num="6">6</button>
+      <button class="keyBtn" data-num="7">7</button>
+      <button class="keyBtn" data-num="8">8</button>
+      <button class="keyBtn" data-num="9">9</button>
+      <button class="keyBtn shift" id="shiftBtn">あか</button>
+      <button class="keyBtn" data-num="0">0</button>
+      <button class="keyBtn back" id="backKey">← もどる</button>
+    </div>
+    <div style="margin-top:6px;">
+      <button class="keyBtn enter" id="enterBtn" style="width:100%;">OK</button>
+    </div>
+  </div>
+
+  <!-- 結果画面 -->
+  <div class="screen" id="screenResult">
+    <p class="title" id="resultTitle">けっか</p>
+    <p class="resultScore" id="resultScore"></p>
+    <p class="resultSub" id="resultSub"></p>
+    <div class="resultActions">
+      <button class="again" id="againBtn">もういちど</button>
+      <button class="quitResult" id="quitResultBtn">やめる</button>
+      <button class="resetBest" id="resetBestBtn">ベストきろくを リセット</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========== 問題プール ========== */
+const PROBLEMS = [];
+for (let m = 11; m <= 19; m++) {
+  for (let s = 1; s <= 9; s++) {
+    PROBLEMS.push({
+      minuend: m,
+      subtrahend: s,
+      answer: m - s,
+      complement: 10 - s,
+      onesOfMinuend: m % 10,
+      isBorrow: (m % 10) < s
+    });
+  }
+}
+const POOLS = {
+  1: PROBLEMS.filter(p => !p.isBorrow),
+  2: PROBLEMS.filter(p =>  p.isBorrow),
+  3: PROBLEMS, 4: PROBLEMS, 5: PROBLEMS, 6: PROBLEMS
+};
+
+/* ========== ★ごとの入力ルール ==========
+   入力スロット: {color:'red'|'black', target:'complement'|'onesOfMinuend'|'answer', expected:Number}
+   入力順は配列の順 */
+function buildSlots(level, p) {
+  switch (level) {
+    case 1: return [{ color:'black', target:'answer',        expected:p.answer }];
+    case 2: return [{ color:'red',   target:'complement',    expected:p.complement }];
+    case 3: return p.isBorrow
+      ? [{ color:'red',   target:'complement', expected:p.complement }]
+      : [{ color:'black', target:'answer',     expected:p.answer }];
+    case 4: return p.isBorrow ? [
+      { color:'red', target:'complement',    expected:p.complement },
+      { color:'red', target:'onesOfMinuend', expected:p.onesOfMinuend }
+    ] : [{ color:'black', target:'answer', expected:p.answer }];
+    case 5: return p.isBorrow ? [
+      { color:'red',   target:'complement',    expected:p.complement },
+      { color:'red',   target:'onesOfMinuend', expected:p.onesOfMinuend },
+      { color:'black', target:'answer',        expected:p.answer }
+    ] : [{ color:'black', target:'answer', expected:p.answer }];
+    case 6: return [{ color:'black', target:'answer', expected:p.answer }];
+  }
+}
+
+/* ========== 状態 ========== */
+const STORAGE_SOUND = 'hhc_soundOn';
+const bestKey = (star, mode) => `hhc_best_${mode}_${star}`;
+
+const state = {
+  screen: 'starSelect',
+  star: null,
+  mode: null,         // 'practice' | 'challenge' | 'nomiss'
+  problem: null,
+  expectedSlots: [],  // そのレベルで「正解として期待される入力」 [{color,target,expected}, ...]
+  userInputs: {       // ユーザーの実際の入力（位置に関係なく自由に入る）
+    answer: [],       // [ones, tens]
+    complement: null, // number or null
+    onesOfMinuend: null
+  },
+  shiftOn: false,
+  score: 0,
+  misses: 0,
+  timerId: null,
+  timerEndAt: 0,
+  hintShown: false,
+  gameBusy: false,
+  lastIdx: -1,
+  soundOn: localStorage.getItem(STORAGE_SOUND) !== 'off',
+  lastResult: null
+};
+
+/* ========== DOM ========== */
+const $ = id => document.getElementById(id);
+const screens = {
+  starSelect: $('screenStarSelect'),
+  modeSelect: $('screenModeSelect'),
+  play:       $('screenPlay'),
+  result:     $('screenResult')
+};
+
+/* ========== 画面切替 ========== */
+function goScreen(name) {
+  Object.entries(screens).forEach(([k, el]) => el.classList.toggle('active', k === name));
+  state.screen = name;
+}
+
+/* ========== 音 ========== */
+let audioCtx = null;
+function getAudio() {
+  const Cls = window.AudioContext || window.webkitAudioContext;
+  if (!Cls) return null;
+  if (!audioCtx) audioCtx = new Cls();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function beep({ freq=880, duration=0.08, type='sine', gain=0.03, when=0 }) {
+  if (!state.soundOn) return;
+  const ctx = getAudio(); if (!ctx) return;
+  const now = ctx.currentTime + when;
+  const osc = ctx.createOscillator();
+  const amp = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  amp.gain.setValueAtTime(0.0001, now);
+  amp.gain.exponentialRampToValueAtTime(gain, now + 0.01);
+  amp.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  osc.connect(amp); amp.connect(ctx.destination);
+  osc.start(now); osc.stop(now + duration + 0.02);
+}
+function playCorrect() {
+  beep({ freq:880,  duration:0.08, when:0 });
+  beep({ freq:1320, duration:0.10, when:0.08 });
+}
+function playWrong() {
+  beep({ freq:180, duration:0.12, type:'triangle' });
+}
+
+function updateSoundBtn() {
+  $('soundBtn').classList.toggle('off', !state.soundOn);
+  $('soundBtn').textContent = state.soundOn ? '🔊 おと ON' : '🔇 おと OFF';
+}
+
+/* ========== 問題生成 ========== */
+function pickProblem() {
+  const pool = POOLS[state.star];
+  let i;
+  if (pool.length <= 1) i = 0;
+  else { do { i = Math.floor(Math.random() * pool.length); } while (i === state.lastIdx); }
+  state.lastIdx = i;
+  return pool[i];
+}
+
+function setupNextProblem() {
+  state.problem = pickProblem();
+  state.expectedSlots = buildSlots(state.star, state.problem);
+  state.userInputs = { answer: [], complement: null, onesOfMinuend: null };
+  // state.shiftOn は引き継ぐ（前の問題を赤で終えたら次も赤から、緑で終えたら緑から）
+  state.hintShown = false;
+  renderProblem();
+  renderInputs();
+  renderHints();
+  positionRedBoxes();
+  updateShiftBtn();
+  updateHintBtnLabel();
+}
+
+function renderProblem() {
+  const p = state.problem;
+  $('qTens').textContent = Math.floor(p.minuend / 10);
+  $('qOnes').textContent = p.onesOfMinuend;
+  $('qSub').textContent  = p.subtrahend;
+}
+
+/* ========== 入力ボックスの表示 ==========
+   ★ごとのスロットを順に埋めていく。
+   各スロットは2桁まで入る（1の位→十の位）。
+   表示位置：
+     - target='answer'      → ansOnesBox / ansTensBox
+     - target='complement'  → redComplementBox（上段一の位の右）
+     - target='onesOfMinuend' → redOnesBox（補数のさらに右 or 別位置）
+*/
+function digitsToText(digits) {
+  // digits: [ones, tens] のサブセット。表示は tens, ones の順
+  if (digits.length === 0) return '';
+  if (digits.length === 1) return String(digits[0]);
+  return String(digits[1]) + String(digits[0]);
+}
+
+function renderInputs() {
+  // 全クリア
+  $('ansOnesBox').innerHTML = '';
+  $('ansTensBox').innerHTML = '';
+  $('redComplementBox').innerHTML = '';
+  $('redOnesBox').innerHTML = '';
+  document.querySelectorAll('.hl').forEach(el => el.classList.remove('hl', 'hlRed'));
+
+  // ユーザー入力の表示
+  const ans = state.userInputs.answer;
+  if (ans.length >= 2) {
+    $('ansTensBox').textContent = ans[1];
+    $('ansOnesBox').textContent = ans[0];
+  } else if (ans.length === 1) {
+    $('ansTensBox').textContent = '';
+    $('ansOnesBox').textContent = ans[0];
+  }
+  if (state.userInputs.complement !== null) {
+    $('redComplementBox').textContent = state.userInputs.complement;
+  }
+  if (state.userInputs.onesOfMinuend !== null) {
+    $('redOnesBox').textContent = state.userInputs.onesOfMinuend;
+  }
+
+  // ハイライト：通常は ★レベルの最大スロット集合で決定（繰り下がり有無を隠す）。
+  //            ヒント中は「この問題で本当に入力すべきスロット」だけハイライトする。
+  const levelTargets = state.hintShown
+    ? new Set(state.expectedSlots.map(s => s.target))
+    : getLevelTargets(state.star);
+
+  let target = null;
+  if (state.shiftOn) {
+    // 未入力の赤スロットがある場合のみハイライト。全部埋まったら消える
+    if (levelTargets.has('complement') && state.userInputs.complement === null) {
+      target = $('redComplementBox');
+    } else if (levelTargets.has('onesOfMinuend') && state.userInputs.onesOfMinuend === null) {
+      target = $('redOnesBox');
+    }
+  } else {
+    if (levelTargets.has('answer')) {
+      if (state.userInputs.answer.length === 0) target = $('ansOnesBox');
+      else                                       target = $('ansTensBox');
+    }
+  }
+  if (target) {
+    target.classList.add('hl');
+    if (state.shiftOn) target.classList.add('hlRed');
+  }
+}
+
+/* 赤入力ボックスの位置をDOM上の上段一の位の右に動的配置 */
+function positionRedBoxes() {
+  const inner = $('problemInner').getBoundingClientRect();
+  const qOnes = $('qOnes').getBoundingClientRect();
+  const qSub  = $('qSub').getBoundingClientRect();
+  const place = (el, ref) => {
+    const size = ref.height * 0.7; // 正方形に近い、上段数字の7割サイズ
+    el.style.width  = size + 'px';
+    el.style.height = size + 'px';
+    el.style.left   = (ref.right - inner.left + 6) + 'px';
+    // 縦中央を上段数字の縦中央に合わせる
+    el.style.top    = (ref.top - inner.top + (ref.height - size) / 2) + 'px';
+    el.style.fontSize = (size * 0.7) + 'px';
+    el.style.fontWeight = '800';
+  };
+  place($('redComplementBox'), qSub);   // 補数は引く数の右
+  place($('redOnesBox'),       qOnes);  // 上段一の位の補正は上段一の位の右
+}
+window.addEventListener('resize', () => { if (state.problem) positionRedBoxes(); });
+
+/* ========== ヒント表示 ==========
+   ヒントボタンを押すと「この問題で本当に入力すべき場所」だけにハイライトを絞る。
+   答えの値は表示しない（renderInputs 側のハイライト分岐に委ねる）。 */
+function renderHints() {
+  ['hintComplement','hintOnes','hintAnswer'].forEach(id => $(id).classList.remove('show'));
+  return;
+  // 以下は到達しない（参照用に残す）
+  state.expectedSlots.forEach(slot => {
+  });
+}
+
+/* ★レベルが扱いうる最大ターゲット集合（実問題の borrow 有無に依存しない）
+   この集合に入っていない位置への入力はシェイクして拒否する。 */
+function getLevelTargets(lv) {
+  const s = new Set();
+  if (lv === 1 || lv === 6) s.add('answer');
+  if (lv === 2)             s.add('complement');
+  if (lv === 3)           { s.add('complement'); s.add('answer'); }
+  if (lv === 4)           { s.add('complement'); s.add('onesOfMinuend'); s.add('answer'); }
+  if (lv === 5)           { s.add('complement'); s.add('onesOfMinuend'); s.add('answer'); }
+  return s;
+}
+
+/* ========== シフト ========== */
+function updateShiftBtn() {
+  $('shiftBtn').classList.toggle('on', state.shiftOn);
+  $('shiftBtn').textContent = state.shiftOn ? 'あか ON' : 'あか';
+  $('keypad').classList.toggle('redOn', state.shiftOn);
+}
+function toggleShift() {
+  if (state.gameBusy) return;
+  if (state.hintShown) return; // ヒント中はあかボタン固定（次の正解スロットに自動で合わせる）
+  state.shiftOn = !state.shiftOn;
+  updateShiftBtn();
+  renderInputs();
+}
+
+/* ヒント中は、次に入力すべき expected スロットに応じて
+   あか/くろの状態を自動で合わせる（赤スロットなら強制ON、答えなら強制OFF） */
+function applyHintShiftIfNeeded() {
+  if (!state.hintShown) { updateHintBtnLabel(); return; }
+  for (const slot of state.expectedSlots) {
+    if (slot.target === 'complement' && state.userInputs.complement === null) {
+      state.shiftOn = true; updateShiftBtn(); updateHintBtnLabel(); return;
+    }
+    if (slot.target === 'onesOfMinuend' && state.userInputs.onesOfMinuend === null) {
+      state.shiftOn = true; updateShiftBtn(); updateHintBtnLabel(); return;
+    }
+    if (slot.target === 'answer') {
+      const need = slot.expected >= 10 ? 2 : 1;
+      if (state.userInputs.answer.length < need) {
+        state.shiftOn = false; updateShiftBtn(); updateHintBtnLabel(); return;
+      }
+    }
+  }
+  // 全部埋まったら現状維持（ラベルだけ更新）
+  updateHintBtnLabel();
+}
+
+/* ヒントボタンのラベルを更新（ヒント中は色を示す、それ以外は通常表示） */
+function updateHintBtnLabel() {
+  const btn = $('hintBtn');
+  if (!state.hintShown) {
+    btn.innerHTML = '💡 ヒント';
+    return;
+  }
+  const color = state.shiftOn ? 'red' : 'green';
+  btn.innerHTML = `<span class="swatch ${color}"></span>に数字を入れます`;
+}
+
+/* ========== 数字入力 ==========
+   どこにでも入力できる。シフト状態だけで「黒入力（答え欄）」か「赤入力（補数→上段一の位）」かが決まる。
+   正誤判定は OK を押したときにまとめて行う。 */
+function pressNum(n) {
+  if (state.gameBusy) return;
+  const levelTargets = getLevelTargets(state.star);
+  if (state.shiftOn) {
+    // 赤入力：complement → onesOfMinuend の順で埋める（★レベルが扱う位置のみ）
+    if (levelTargets.has('complement') && state.userInputs.complement === null) {
+      state.userInputs.complement = n;
+    } else if (levelTargets.has('onesOfMinuend') && state.userInputs.onesOfMinuend === null) {
+      state.userInputs.onesOfMinuend = n;
+    } else {
+      // ★レベルが扱わない位置 or 既に全部埋まっている → シェイクで拒否
+      shakeProblem();
+      return;
+    }
+  } else {
+    // 黒入力：答え 1の位→十の位（2桁まで）
+    if (!levelTargets.has('answer') || state.userInputs.answer.length >= 2) {
+      shakeProblem();
+      return;
+    }
+    state.userInputs.answer.push(n);
+  }
+  // ★4/★5/★3 など、赤入力が一通り終わったら自動で緑（答え欄）に遷移
+  autoExitRedShift();
+  applyHintShiftIfNeeded();
+  renderInputs();
+}
+
+/* ★5 限定：赤2スロット（complement, onesOfMinuend）が両方埋まったら自動で緑に切り替える。
+   ★3/★4 はここで切り替えない（赤入れ終わったらハイライトは消える＝OKで意思決定する） */
+function autoExitRedShift() {
+  if (!state.shiftOn) return;
+  if (state.star !== 5) return;
+  if (state.userInputs.complement !== null && state.userInputs.onesOfMinuend !== null) {
+    state.shiftOn = false;
+    updateShiftBtn();
+  }
+}
+
+function pressBack() {
+  if (state.gameBusy) return;
+  // 現在のシフト状態に応じて、最後に入れたものを1つ消す
+  if (state.shiftOn) {
+    if (state.userInputs.onesOfMinuend !== null) {
+      state.userInputs.onesOfMinuend = null;
+    } else if (state.userInputs.complement !== null) {
+      state.userInputs.complement = null;
+    }
+  } else {
+    if (state.userInputs.answer.length > 0) {
+      state.userInputs.answer.pop();
+    }
+  }
+  applyHintShiftIfNeeded();
+  renderInputs();
+}
+
+function shakeKey(id) {
+  const el = $(id);
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+  el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
+}
+
+/* ========== OK（エンター） ========== */
+function pressOK() {
+  if (state.gameBusy) return;
+
+  // 期待スロットのマップを作る
+  const expectedTargets = new Set(state.expectedSlots.map(s => s.target));
+  const expectedMap = {};
+  state.expectedSlots.forEach(s => { expectedMap[s.target] = s.expected; });
+
+  // ユーザー入力の有無 & 値を取得
+  const u = state.userInputs;
+  const has = {
+    answer: u.answer.length > 0,
+    complement: u.complement !== null,
+    onesOfMinuend: u.onesOfMinuend !== null,
+  };
+  const val = {
+    answer: u.answer.length >= 2 ? u.answer[1] * 10 + u.answer[0] : (u.answer[0] ?? null),
+    complement: u.complement,
+    onesOfMinuend: u.onesOfMinuend,
+  };
+
+  // 期待スロットがすべて埋まっているか
+  for (const t of expectedTargets) {
+    if (!has[t]) { shakeProblem(); return; }
+  }
+
+  // 期待スロットの値が正しいか、かつ期待されていない場所に入力がないか
+  let allCorrect = true;
+  for (const t of ['answer','complement','onesOfMinuend']) {
+    if (expectedTargets.has(t)) {
+      if (val[t] !== expectedMap[t]) { allCorrect = false; break; }
+    } else {
+      if (has[t]) { allCorrect = false; break; } // 余計な入力は×
+    }
+  }
+
+  if (allCorrect) onCorrect();
+  else onWrong();
+}
+
+function shakeProblem() {
+  const el = $('problemInner');
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+  el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
+}
+
+/* ========== 正解／不正解 ========== */
+function flashCard(klass) {
+  const c = $('card');
+  c.classList.remove('bgCorrect','bgWrong');
+  void c.offsetWidth;
+  c.classList.add(klass);
+  c.addEventListener('animationend', () => c.classList.remove(klass), { once: true });
+}
+function spawnStars() {
+  const wrap = $('problemInner');
+  ['⭐','✨','🌟'].forEach((emoji, i) => {
+    const el = document.createElement('span');
+    el.className = 'starParticle';
+    el.textContent = emoji;
+    el.style.left = (20 + i * 30) + '%';
+    el.style.top = '60%';
+    el.style.animationDelay = (i * 0.07) + 's';
+    wrap.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  });
+}
+
+function onCorrect() {
+  state.gameBusy = true;
+  flashCard('bgCorrect');
+  spawnStars();
+  playCorrect();
+  if (state.mode !== 'practice') state.score++;
+  updateScoreUI();
+  const delay = state.mode === 'practice' ? 350 : 250;
+  setTimeout(() => {
+    state.gameBusy = false;
+    // タイマー切れチェック（30秒モード）
+    if (state.mode === 'challenge' && Date.now() >= state.timerEndAt) {
+      endGame();
+      return;
+    }
+    setupNextProblem();
+  }, delay);
+}
+
+function onWrong() {
+  state.gameBusy = true;
+  shakeProblem();
+  flashCard('bgWrong');
+  playWrong();
+  if (state.mode === 'challenge') state.misses++;
+  updateScoreUI();
+
+  if (state.mode === 'nomiss') {
+    setTimeout(() => endGame(), 350);
+    return;
+  }
+  // それ以外は同じ問題のままリトライ。入力をクリア。シフト状態は維持。
+  setTimeout(() => {
+    state.gameBusy = false;
+    state.userInputs = { answer: [], complement: null, onesOfMinuend: null };
+    updateShiftBtn();
+    renderInputs();
+  }, 350);
+}
+
+/* ========== UI 更新 ========== */
+function updateScoreUI() {
+  const star = state.star;
+  const modeLabel = { practice:'れんしゅう', challenge:'30びょう', nomiss:'ノーミス' }[state.mode];
+  $('playStarMode').textContent = `★${star} ${modeLabel}`;
+  if (state.mode === 'practice') {
+    $('playTimer').textContent = '';
+    $('playScore').textContent = '';
+  } else if (state.mode === 'challenge') {
+    const left = Math.max(0, Math.ceil((state.timerEndAt - Date.now()) / 1000));
+    $('playTimer').textContent = `⏱ ${left}びょう`;
+    $('playTimer').classList.toggle('warn', left <= 10);
+    $('playScore').textContent = `${state.score}もん`;
+  } else if (state.mode === 'nomiss') {
+    $('playTimer').textContent = '';
+    $('playScore').textContent = `${state.score}もん`;
+  }
+}
+
+/* ========== ゲーム開始／終了 ========== */
+function startPlay() {
+  state.score = 0;
+  state.misses = 0;
+  state.gameBusy = false;
+  state.lastIdx = -1;
+  state.shiftOn = false; // 各ゲーム開始時のみ緑からスタート
+  $('hintBtn').style.display = state.mode === 'practice' ? 'inline-block' : 'none';
+  setupNextProblem();
+  updateScoreUI();
+  if (state.timerId) clearInterval(state.timerId);
+  if (state.mode === 'challenge') {
+    state.timerEndAt = Date.now() + 30000;
+    state.timerId = setInterval(() => {
+      updateScoreUI();
+      if (Date.now() >= state.timerEndAt && !state.gameBusy) endGame();
+    }, 100);
+  }
+  goScreen('play');
+  // 配置調整（DOM 表示後）
+  requestAnimationFrame(() => positionRedBoxes());
+}
+
+function endGame() {
+  if (state.timerId) { clearInterval(state.timerId); state.timerId = null; }
+  state.gameBusy = true;
+
+  // ベスト記録
+  const key = bestKey(state.star, state.mode);
+  const prevBest = Number(localStorage.getItem(key) || 0);
+  const isNewBest = state.score > prevBest;
+  if (isNewBest) localStorage.setItem(key, String(state.score));
+  state.lastResult = { score: state.score, misses: state.misses, isNewBest, prevBest };
+
+  // 表示
+  const modeLabel = state.mode === 'challenge' ? '30びょう' : 'ノーミス';
+  $('resultTitle').textContent = `★${state.star} ${modeLabel}`;
+  $('resultScore').textContent = `${state.score}もん\nできた！`;
+  const best = isNewBest ? state.score : prevBest;
+  let sub;
+  if (state.mode === 'challenge') {
+    sub = `ミス ${state.misses}かい\n` + (isNewBest ? '🎉 ベスト こうしん！' : `ベスト ${best}もん`);
+  } else {
+    sub = 'ミスで しゅうりょう\n' + (isNewBest ? '🎉 ベスト こうしん！' : `ベスト ${best}もん`);
+  }
+  $('resultSub').textContent = sub;
+  goScreen('result');
+}
+
+/* ========== ナビゲーション ========== */
+$('soundBtn').addEventListener('click', () => {
+  state.soundOn = !state.soundOn;
+  localStorage.setItem(STORAGE_SOUND, state.soundOn ? 'on' : 'off');
+  updateSoundBtn();
+});
+
+document.querySelectorAll('.starBtn').forEach(b => {
+  b.addEventListener('click', () => {
+    state.star = Number(b.dataset.star);
+    $('selectedStarLabel').textContent = `★${state.star}`;
+    goScreen('modeSelect');
+  });
+});
+
+$('backToStar').addEventListener('click', () => goScreen('starSelect'));
+
+document.querySelectorAll('.modeBtn').forEach(b => {
+  b.addEventListener('click', () => {
+    state.mode = b.dataset.mode;
+    startPlay();
+  });
+});
+
+$('quitBtn').addEventListener('click', () => {
+  if (state.timerId) { clearInterval(state.timerId); state.timerId = null; }
+  goScreen('modeSelect');
+});
+
+$('againBtn').addEventListener('click', () => startPlay());
+$('quitResultBtn').addEventListener('click', () => goScreen('modeSelect'));
+$('resetBestBtn').addEventListener('click', () => {
+  if (!state.lastResult) return;
+  localStorage.removeItem(bestKey(state.star, state.mode));
+  state.lastResult.prevBest = 0;
+  state.lastResult.isNewBest = false;
+  const modeLabel = state.mode === 'challenge' ? '30びょう' : 'ノーミス';
+  const sub = (state.mode === 'challenge' ? `ミス ${state.lastResult.misses}かい\n` : 'ミスで しゅうりょう\n')
+    + 'ベストきろくを リセットしたよ';
+  $('resultSub').textContent = sub;
+});
+
+/* キーパッド */
+document.querySelectorAll('[data-num]').forEach(b => {
+  b.addEventListener('click', () => pressNum(Number(b.dataset.num)));
+});
+$('backKey').addEventListener('click', pressBack);
+$('enterBtn').addEventListener('click', pressOK);
+$('shiftBtn').addEventListener('click', toggleShift);
+$('hintBtn').addEventListener('click', () => {
+  if (state.mode !== 'practice') return;
+  state.hintShown = true;
+  applyHintShiftIfNeeded(); // 次の正解スロットに合わせて あか/くろ を強制
+  renderHints();
+  renderInputs();
+});
+
+/* キーボード対応 */
+document.addEventListener('keydown', (e) => {
+  if (state.screen !== 'play') return;
+  if (e.key >= '0' && e.key <= '9') pressNum(Number(e.key));
+  else if (e.key === 'Backspace') pressBack();
+  else if (e.key === 'Enter') pressOK();
+  else if (e.key === 'Shift') toggleShift();
+});
+
+/* 初期化 */
+updateSoundBtn();
+</script>
+</body>
+</html>
