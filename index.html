@@ -711,25 +711,36 @@ function renderInputs() {
     $('redOnesBox').textContent = state.userInputs.onesOfMinuend;
   }
 
-  // ハイライト：通常は ★レベルの最大スロット集合で決定（繰り下がり有無を隠す）。
-  //            ヒント中は「この問題で本当に入力すべきスロット」だけハイライトする。
-  const levelTargets = state.hintShown
-    ? new Set(state.expectedSlots.map(s => s.target))
-    : getLevelTargets(state.star);
-
+  // ハイライト：通常は緑/赤それぞれの次の入力位置を示す（誘導しない＝レベル制約は隠す）。
+  // ヒント中は「この問題で本当に入力すべきスロット」だけハイライトする。
   let target = null;
-  if (state.shiftOn) {
-    // 赤：complement を先頭に、onesOfMinuend は levelTargets が扱うレベルでのみ次に進む
-    if (state.userInputs.complement === null) {
-      target = $('redComplementBox');
-    } else if (levelTargets.has('onesOfMinuend') && state.userInputs.onesOfMinuend === null) {
-      target = $('redOnesBox');
+  if (state.hintShown) {
+    // ヒント中：expectedSlots の次の未入力位置のみハイライト
+    const expectedTargets = new Set(state.expectedSlots.map(s => s.target));
+    if (state.shiftOn) {
+      if (expectedTargets.has('complement') && state.userInputs.complement === null) {
+        target = $('redComplementBox');
+      } else if (expectedTargets.has('onesOfMinuend') && state.userInputs.onesOfMinuend === null) {
+        target = $('redOnesBox');
+      }
+    } else {
+      if (expectedTargets.has('answer')) {
+        if (state.userInputs.answer.length === 0) target = $('ansOnesBox');
+        else if (state.userInputs.answer.length === 1) target = $('ansTensBox');
+      }
     }
-    // 赤スロットを全部入れ終わったら消える（★3/★4 の意思決定ポイント）
   } else {
-    // 緑：答え欄を常に提示する（誘導回避のため、レベルが answer を期待しなくても表示）
-    if (state.userInputs.answer.length === 0) target = $('ansOnesBox');
-    else                                       target = $('ansTensBox');
+    // 通常：シフト状態のみで決まる。赤は complement → onesOfMinuend、緑は ones → tens
+    if (state.shiftOn) {
+      if (state.userInputs.complement === null) {
+        target = $('redComplementBox');
+      } else if (state.userInputs.onesOfMinuend === null) {
+        target = $('redOnesBox');
+      }
+    } else {
+      if (state.userInputs.answer.length === 0) target = $('ansOnesBox');
+      else if (state.userInputs.answer.length === 1) target = $('ansTensBox');
+    }
   }
   if (target) {
     target.classList.add('hl');
@@ -832,27 +843,27 @@ function updateHintBtnLabel() {
    正誤判定は OK を押したときにまとめて行う。 */
 function pressNum(n) {
   if (state.gameBusy) return;
-  const levelTargets = getLevelTargets(state.star);
+  // どの★でも、緑/赤のハイライト位置に自由に入れられる。
+  // 正誤は OK ボタンで判定（期待位置が正しい値か＋余計な入力がないか）。
   if (state.shiftOn) {
-    // 赤入力：complement → onesOfMinuend の順で埋める（★レベルが扱う位置のみ）
-    if (levelTargets.has('complement') && state.userInputs.complement === null) {
+    // 赤入力：complement → onesOfMinuend の順で埋める
+    if (state.userInputs.complement === null) {
       state.userInputs.complement = n;
-    } else if (levelTargets.has('onesOfMinuend') && state.userInputs.onesOfMinuend === null) {
+    } else if (state.userInputs.onesOfMinuend === null) {
       state.userInputs.onesOfMinuend = n;
     } else {
-      // ★レベルが扱わない位置 or 既に全部埋まっている → シェイクで拒否
-      shakeProblem();
+      shakeProblem(); // 2マス埋まってる状態でさらに押した時だけ拒否
       return;
     }
   } else {
-    // 黒入力：答え 1の位→十の位（2桁まで）
-    if (!levelTargets.has('answer') || state.userInputs.answer.length >= 2) {
+    // 緑入力：答え 1の位→十の位（2桁まで）
+    if (state.userInputs.answer.length >= 2) {
       shakeProblem();
       return;
     }
     state.userInputs.answer.push(n);
   }
-  // ★4/★5/★3 など、赤入力が一通り終わったら自動で緑（答え欄）に遷移
+  // ★5：赤2スロット両方入れたら自動で緑へ
   autoExitRedShift();
   applyHintShiftIfNeeded();
   renderInputs();
