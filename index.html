@@ -719,17 +719,17 @@ function renderInputs() {
 
   let target = null;
   if (state.shiftOn) {
-    // 未入力の赤スロットがある場合のみハイライト。全部埋まったら消える
-    if (levelTargets.has('complement') && state.userInputs.complement === null) {
+    // 赤：complement を先頭に、onesOfMinuend は levelTargets が扱うレベルでのみ次に進む
+    if (state.userInputs.complement === null) {
       target = $('redComplementBox');
     } else if (levelTargets.has('onesOfMinuend') && state.userInputs.onesOfMinuend === null) {
       target = $('redOnesBox');
     }
+    // 赤スロットを全部入れ終わったら消える（★3/★4 の意思決定ポイント）
   } else {
-    if (levelTargets.has('answer')) {
-      if (state.userInputs.answer.length === 0) target = $('ansOnesBox');
-      else                                       target = $('ansTensBox');
-    }
+    // 緑：答え欄を常に提示する（誘導回避のため、レベルが answer を期待しなくても表示）
+    if (state.userInputs.answer.length === 0) target = $('ansOnesBox');
+    else                                       target = $('ansTensBox');
   }
   if (target) {
     target.classList.add('hl');
