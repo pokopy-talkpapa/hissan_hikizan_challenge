@@ -731,10 +731,13 @@ function renderInputs() {
     }
   } else {
     // 通常：シフト状態のみで決まる。赤は complement → onesOfMinuend、緑は ones → tens
+    // ただし onesOfMinuend は level が使う場合のみ（★3 のように complement だけのレベルで
+    // 赤の自動進行を起こさない）
+    const levelHasOnesOfMinuend = state.expectedSlots.some(s => s.target === 'onesOfMinuend');
     if (state.shiftOn) {
       if (state.userInputs.complement === null) {
         target = $('redComplementBox');
-      } else if (state.userInputs.onesOfMinuend === null) {
+      } else if (levelHasOnesOfMinuend && state.userInputs.onesOfMinuend === null) {
         target = $('redOnesBox');
       }
     } else {
@@ -847,12 +850,15 @@ function pressNum(n) {
   // 正誤は OK ボタンで判定（期待位置が正しい値か＋余計な入力がないか）。
   if (state.shiftOn) {
     // 赤入力：complement → onesOfMinuend の順で埋める
+    // onesOfMinuend は level が使うときのみ受け付ける（★3 のように complement だけのレベルでは
+    // complement 入力後の追加押下は拒否）
+    const levelHasOnesOfMinuend = state.expectedSlots.some(s => s.target === 'onesOfMinuend');
     if (state.userInputs.complement === null) {
       state.userInputs.complement = n;
-    } else if (state.userInputs.onesOfMinuend === null) {
+    } else if (levelHasOnesOfMinuend && state.userInputs.onesOfMinuend === null) {
       state.userInputs.onesOfMinuend = n;
     } else {
-      shakeProblem(); // 2マス埋まってる状態でさらに押した時だけ拒否
+      shakeProblem();
       return;
     }
   } else {
