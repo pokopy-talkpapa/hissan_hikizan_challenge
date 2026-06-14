@@ -803,12 +803,19 @@ function getLevelTargets(lv) {
 
 /* ========== シフト ========== */
 function updateShiftBtn() {
+  if (state.star === 6) {
+    $('shiftBtn').textContent = '🧠 あたまで';
+    $('shiftBtn').classList.remove('on');
+    $('keypad').classList.remove('redOn');
+    return;
+  }
   $('shiftBtn').classList.toggle('on', state.shiftOn);
   $('shiftBtn').textContent = state.shiftOn ? 'あか ON' : 'あか';
   $('keypad').classList.toggle('redOn', state.shiftOn);
 }
 function toggleShift() {
   if (state.gameBusy) return;
+  if (state.star === 6) { shakeKey('shiftBtn'); return; }
   if (state.hintShown) return; // ヒント中はあかボタン固定（次の正解スロットに自動で合わせる）
   state.shiftOn = !state.shiftOn;
   updateShiftBtn();
